@@ -57,9 +57,9 @@ function App() {
   const [loveLevel, setLoveLevel] = useState(72)
   const [reason, setReason] = useState(0)
   const [secretFound, setSecretFound] = useState(false)
-  const [nickname, setNickname] = useState('')
-  const [nicknameSaved, setNicknameSaved] = useState(false)
-  const [nicknameError, setNicknameError] = useState('')
+  const [entryNickname, setEntryNickname] = useState('')
+  const [entrySubmitted, setEntrySubmitted] = useState(false)
+  const [entryError, setEntryError] = useState('')
   const [audioStarted, setAudioStarted] = useState(false)
   const [audioEngaged, setAudioEngaged] = useState(false)
   const [audioMuted, setAudioMuted] = useState(false)
@@ -125,7 +125,44 @@ function App() {
     startMusic(true)
   }
 
+  const enterLoveWorld = (event) => {
+    event.preventDefault()
+    const value = entryNickname.trim()
+    if (!value) return
+    if (!acceptedNicknames.has(value.toLowerCase())) {
+      trackInteraction('entry_nickname_submitted', { nickname: value, accepted: false })
+      setEntryError('hmm… not that one. Try to guess again ♡')
+      gsap.fromTo('.entry-gate-card', { x: -9 }, {
+        x: 9,
+        duration: .08,
+        repeat: 7,
+        yoyo: true,
+        clearProps: 'x',
+        ease: 'power1.inOut',
+      })
+      return
+    }
+    setEntryError('')
+    trackInteraction('entry_nickname_submitted', { nickname: value, accepted: true })
+    if (audio.current) {
+      audio.current.currentTime = 0
+      audio.current.muted = false
+      audio.current.volume = 0.42
+      audio.current.play()
+        .then(() => {
+          audioStartedRef.current = true
+          audioUnlockedRef.current = true
+          setAudioStarted(true)
+          setAudioMuted(false)
+          setAudioEngaged(true)
+        })
+        .catch((error) => console.warn('Background music could not start:', error))
+    }
+    setEntrySubmitted(true)
+  }
+
   useEffect(() => {
+    if (!entrySubmitted) return undefined
     const beginOnInteraction = () => {
       setAudioEngaged(true)
       if (audio.current && !audioUnlockedRef.current) {
@@ -135,10 +172,10 @@ function App() {
       }
       startMusic(false, false)
     }
-    const beginWhenReady = () => startMusic(false, true)
+    const beginWhenReady = () => startMusic(false, false)
     const player = audio.current
     player?.addEventListener('canplay', beginWhenReady, { once: true })
-    startMusic(false, true)
+    startMusic(false, false)
     window.addEventListener('pointerdown', beginOnInteraction, { once: true, passive: true, capture: true })
     window.addEventListener('keydown', beginOnInteraction, { once: true, capture: true })
     return () => {
@@ -146,7 +183,7 @@ function App() {
       window.removeEventListener('pointerdown', beginOnInteraction, { capture: true })
       window.removeEventListener('keydown', beginOnInteraction, { capture: true })
     }
-  }, [])
+  }, [entrySubmitted])
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -154,8 +191,12 @@ function App() {
         onComplete: () => setLoading(false),
       })
       loader
-        .to('.loader-heart', { scale: 1.25, duration: .55, ease: 'back.out(2)' })
-        .to('.loader-line', { scaleX: 1, duration: .7, ease: 'expo.inOut' }, '-=.2')
+        .to('.loader-orbit', { rotate: 360, duration: 1.8, ease: 'none' })
+        .to('.loader-heart', { scale: 1.24, duration: .55, ease: 'back.out(2)' }, 0)
+        .to('.loader-heart', { scale: .92, duration: .42, ease: 'sine.inOut' })
+        .to('.loader-heart', { scale: 1.08, duration: .42, ease: 'sine.inOut' })
+        .to('.loader-line', { scaleX: 1, duration: .85, ease: 'expo.inOut' }, '-=.8')
+        .fromTo('.loader-meta', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: .35 }, '-=.45')
         .to('.loader-copy', { opacity: 0, y: -12, duration: .35 }, '+=.2')
         .to('.loader', { clipPath: 'inset(0 0 100% 0)', duration: 1, ease: 'expo.inOut' })
 
@@ -177,6 +218,11 @@ function App() {
         ease: 'none',
         scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1 },
       })
+      gsap.to('.hero-copy', {
+        yPercent: -9,
+        ease: 'none',
+        scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1.2 },
+      })
       gsap.to('.hero-stage', {
         yPercent: 13,
         rotate: 2,
@@ -194,6 +240,28 @@ function App() {
         y: -30,
         ease: 'none',
         scrollTrigger: { trigger: '.hero', start: '20% top', end: '70% top', scrub: true },
+      })
+      gsap.to('.intro-strip', {
+        yPercent: -18,
+        opacity: .82,
+        ease: 'none',
+        scrollTrigger: { trigger: '.hero', start: '55% top', end: 'bottom top', scrub: 1 },
+      })
+      gsap.to('.name-heart-copy', {
+        yPercent: -13,
+        ease: 'none',
+        scrollTrigger: { trigger: '.name-heart-section', start: 'top bottom', end: 'bottom top', scrub: 1.2 },
+      })
+      gsap.to('.name-heart-stage', {
+        yPercent: 10,
+        scale: 1.04,
+        ease: 'none',
+        scrollTrigger: { trigger: '.name-heart-section', start: 'top bottom', end: 'bottom top', scrub: 1.5 },
+      })
+      gsap.to('.name-heart-type', {
+        xPercent: -18,
+        ease: 'none',
+        scrollTrigger: { trigger: '.name-heart-section', start: 'top bottom', end: 'bottom top', scrub: 1 },
       })
 
       gsap.utils.toArray('.reveal').forEach((element) => gsap.fromTo(element, { opacity: 0, y: 50 }, {
@@ -293,6 +361,22 @@ function App() {
   })
 
   useEffect(() => {
+    if (!entrySubmitted) return undefined
+    const timeline = gsap.timeline({ defaults: { ease: 'power3.out' } })
+    timeline
+      .fromTo('.name-heart-copy > *', { opacity: 0, y: 28 }, { opacity: 1, y: 0, stagger: .1, duration: .7 })
+      .fromTo('.name-heart-stage', { opacity: 0, scale: .72, rotate: -12 }, { opacity: 1, scale: 1, rotate: 0, duration: 1.1, ease: 'elastic.out(1, .55)' }, '-=.45')
+      .fromTo('.name-heart-core', { scale: 0, rotate: -25 }, { scale: 1, rotate: 0, duration: .8, ease: 'back.out(2)' }, '-=.55')
+      .fromTo('.orbit-heart', { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, stagger: .04, duration: .35, ease: 'back.out(2)' }, '-=.45')
+      .fromTo('.name-heart-type', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: .7 }, '-=.25')
+    gsap.to('.name-heart-core', { scale: 1.12, duration: 1.15, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+    gsap.to('.ring-one', { rotate: 360, duration: 18, repeat: -1, ease: 'none' })
+    gsap.to('.ring-two', { rotate: -360, duration: 24, repeat: -1, ease: 'none' })
+    gsap.to('.orbit-heart', { rotate: 360, transformOrigin: '50% 50%', duration: 7, repeat: -1, ease: 'none' })
+    return () => timeline.kill()
+  }, [entrySubmitted, entryNickname])
+
+  useEffect(() => {
     const tiltCards = cards.current?.querySelectorAll('.story-card')
     const onMove = (event) => {
       const card = event.currentTarget
@@ -344,32 +428,37 @@ function App() {
     setBurst(true)
     window.setTimeout(() => setBurst(false), 1200)
   }
-  const saveNickname = (event) => {
-    event.preventDefault()
-    const value = nickname.trim()
-    if (!value) return
-    if (!acceptedNicknames.has(value.toLowerCase())) {
-      trackInteraction('nickname_submitted', { nickname: value, accepted: false })
-      setNicknameError('hmm… not that one. Try to guess again ♡')
-      gsap.fromTo('.nickname-card', { x: -9 }, { x: 9, duration: .08, repeat: 7, yoyo: true, clearProps: 'x', ease: 'power1.inOut' })
-      return
-    }
-    setNicknameError('')
-    trackInteraction('nickname_submitted', { nickname: value, accepted: true })
-    setNickname(value)
-    setNicknameSaved(true)
-    gsap.fromTo('.nickname-reveal', { opacity: 0, y: 16, scale: .96 }, { opacity: 1, y: 0, scale: 1, duration: .7, ease: 'back.out(1.7)' })
-  }
-
   return (
     <div className="page">
-      <audio ref={audio} src="/audio/bgm.mp3" loop preload="auto" autoPlay muted playsInline aria-hidden="true" onError={() => setAudioError(true)} />
+      <audio ref={audio} src="/audio/bgm.mp3" loop preload="auto" playsInline aria-hidden="true" onError={() => setAudioError(true)} />
       {audioEngaged && <button className="music-toggle" onClick={toggleMusic} aria-label={audioMuted ? 'Unmute background music' : 'Mute background music'} aria-pressed={!audioMuted}>
         <span className="music-toggle-icon" aria-hidden="true">{audioMuted ? '♪̸' : '♫'}</span>
         <span>{audioMuted ? 'sound off' : audioStarted ? 'sound on' : audioError ? 'retry sound' : 'play sound'}</span>
       </button>}
       {loading && <div className="loader" aria-label="Loading love letter">
-        <div className="loader-copy"><span className="loader-heart">♥</span><p>putting a little love<br />into this page<span>...</span></p><i className="loader-line" /></div>
+        <div className="loader-copy">
+          <div className="loader-symbol"><i className="loader-orbit" /><span className="loader-heart">♥</span></div>
+          <p>putting a little love<br />into this page<span className="loader-dots">...</span></p>
+          <i className="loader-line" />
+          <small className="loader-meta">preparing your little universe</small>
+        </div>
+      </div>}
+      {!loading && !entrySubmitted && <div className="entry-gate" role="dialog" aria-modal="true" aria-labelledby="entry-title">
+        <div className="entry-gate-card">
+          <span className="entry-gate-mark">♥</span>
+          <p className="eyebrow"><span /> before we begin</p>
+          <h2 id="entry-title">Tell me what<br /><em>to call you.</em></h2>
+          <p className="entry-gate-copy">There is a little music and a whole universe waiting behind your name.</p>
+          <form className="entry-form" onSubmit={enterLoveWorld}>
+            <label htmlFor="entry-nickname">your nickname</label>
+            <div className="entry-field">
+              <input id="entry-nickname" value={entryNickname} onChange={(event) => { setEntryNickname(event.target.value); setEntryError('') }} placeholder="type it here..." maxLength="32" autoComplete="off" autoFocus aria-describedby="entry-error" />
+              <button type="submit" aria-label="Enter the love experience">↗</button>
+            </div>
+            <p id="entry-error" className={`entry-error ${entryError ? 'show' : ''}`} aria-live="polite">{entryError || ' '}</p>
+          </form>
+          <span className="entry-gate-note">sound on · hearts ready · just for you</span>
+        </div>
       </div>}
       <div className="scroll-progress" aria-hidden="true"><span ref={progress} /></div>
       <div ref={cursor} className="cursor-orb" aria-hidden="true" />
@@ -432,35 +521,21 @@ function App() {
           <p>Not a portfolio. Not a presentation. Just a tiny world I made because you make mine better.</p>
           <span className="strip-mark">♡ <i /> ∞</span>
         </section>
-        <div className="marquee" aria-hidden="true"><div className="marquee-track"><span>you make ordinary moments feel like magic&nbsp; ✦ &nbsp;you make ordinary moments feel like magic&nbsp; ✦ &nbsp;</span><span>you make ordinary moments feel like magic&nbsp; ✦ &nbsp;you make ordinary moments feel like magic&nbsp; ✦ &nbsp;</span></div></div>
-
-        <section className="nickname-section shell reveal" id="nickname">
-          <div className="nickname-card">
-            <span className="nickname-kicker">a tiny question, just for you</span>
-            {!nicknameSaved ? (
-              <>
-                <h2>What should I<br /><em>call you?</em></h2>
-                <p>Type the name that makes you smile. I’ll keep it right here, in our little corner of the internet.</p>
-                <form className="nickname-form" onSubmit={saveNickname}>
-                  <label htmlFor="nickname-input">your favorite nickname</label>
-                  <div className={`nickname-field ${nicknameError ? 'has-error' : ''}`}>
-                    <input id="nickname-input" value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="e.g. my sunshine" maxLength="32" autoComplete="off" />
-                    <button type="submit" aria-label="Save nickname">↗</button>
-                  </div>
-                  <p className={`nickname-error ${nicknameError ? 'show' : ''}`} aria-live="polite">{nicknameError || ' '}</p>
-                </form>
-              </>
-            ) : (
-              <div className="nickname-reveal">
-                <span className="nickname-heart">♥</span>
-                <p className="nickname-kicker">noted forever</p>
-                <h2>Hi, <em>{nickname}.</em></h2>
-                <p>That sounds perfect. It’s my favorite name already.</p>
-              </div>
-            )}
-            <span className="nickname-doodle">♡</span>
+        {entrySubmitted && <section className="name-heart-section shell" aria-label={`A heart animation for ${entryNickname}`}>
+          <div className="name-heart-copy">
+            <p className="eyebrow"><span /> now it feels real</p>
+            <h2>For<br /><em>{entryNickname}.</em></h2>
+            <p>Your name is in the room now. Watch what happens when a little love gets a shape.</p>
           </div>
-        </section>
+          <div className="name-heart-stage" aria-hidden="true">
+            <div className="name-heart-ring ring-one" />
+            <div className="name-heart-ring ring-two" />
+            <span className="name-heart-core">♥</span>
+            {Array.from({ length: 12 }, (_, index) => <span className="orbit-heart" key={index} style={{ '--i': index }}>♥</span>)}
+            <div className="name-heart-type">{entryNickname} · {entryNickname} · {entryNickname} · </div>
+          </div>
+        </section>}
+        <div className="marquee" aria-hidden="true"><div className="marquee-track"><span>you make ordinary moments feel like magic&nbsp; ✦ &nbsp;you make ordinary moments feel like magic&nbsp; ✦ &nbsp;</span><span>you make ordinary moments feel like magic&nbsp; ✦ &nbsp;you make ordinary moments feel like magic&nbsp; ✦ &nbsp;</span></div></div>
 
         <section className="reasons shell reveal" id="little-things">
           <div className="reasons-heading">
