@@ -61,7 +61,7 @@ function App() {
   const [nicknameSaved, setNicknameSaved] = useState(false)
   const [nicknameError, setNicknameError] = useState('')
   const [audioStarted, setAudioStarted] = useState(false)
-  const [audioEngaged, setAudioEngaged] = useState(true)
+  const [audioEngaged, setAudioEngaged] = useState(false)
   const [audioMuted, setAudioMuted] = useState(false)
   const [audioError, setAudioError] = useState(false)
   const [audioPromptDismissed, setAudioPromptDismissed] = useState(false)
@@ -113,7 +113,7 @@ function App() {
   }
 
   const replayAudio = () => {
-    trackInteraction('audio_replay_requested', { source: 'audio_retry_popup' })
+    trackInteraction('audio_play_requested', { source: 'audio_prompt' })
     setAudioPromptDismissed(true)
     setAudioEngaged(true)
     if (audio.current) {
@@ -358,14 +358,14 @@ function App() {
   return (
     <div className="page">
       <audio ref={audio} src="/audio/bgm.mp3" loop preload="auto" autoPlay playsInline aria-hidden="true" onError={() => setAudioError(true)} />
-      {audioError && !audioStarted && !audioPromptDismissed && <div className="audio-prompt" role="dialog" aria-live="polite" aria-label="Replay background audio">
+      {!audioStarted && !audioPromptDismissed && <div className="audio-prompt" role="dialog" aria-live="polite" aria-label="Play background audio">
         <button className="audio-prompt-close" onClick={() => setAudioPromptDismissed(true)} aria-label="Dismiss audio prompt">×</button>
         <span className="audio-prompt-icon" aria-hidden="true">♫</span>
         <div>
           <strong>the soundtrack is waiting</strong>
-          <p>Tap once to replay the little music I chose for you.</p>
+          <p>Tap once to start the little music I chose for you.</p>
         </div>
-        <button className="audio-prompt-action" onClick={replayAudio}>Replay audio <Arrow /></button>
+        <button className="audio-prompt-action" onClick={replayAudio}>Play audio <Arrow /></button>
       </div>}
       {audioEngaged && <button className="music-toggle" onClick={toggleMusic} aria-label={audioMuted ? 'Unmute background music' : 'Mute background music'} aria-pressed={!audioMuted}>
         <span className="music-toggle-icon" aria-hidden="true">{audioMuted ? '♪̸' : '♫'}</span>
