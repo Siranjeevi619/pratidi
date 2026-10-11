@@ -64,24 +64,26 @@ function App() {
   const [audioEngaged, setAudioEngaged] = useState(false)
   const [audioMuted, setAudioMuted] = useState(false)
   const [audioError, setAudioError] = useState(false)
-  const [audioPromptDismissed, setAudioPromptDismissed] = useState(false)
   const cards = useRef(null)
   const audio = useRef(null)
   const audioStartedRef = useRef(false)
+  const audioUnlockedRef = useRef(false)
   const activeStory = stories[active]
   const progress = useRef(null)
   const cursor = useRef(null)
   const scene = useRef(null)
 
-  const startMusic = (restart = false) => {
+  const startMusic = (restart = false, muted = false) => {
     if (!audio.current || audioStartedRef.current) return
     if (restart) audio.current.currentTime = 0
     audio.current.volume = 0.42
+    audio.current.muted = muted
     audio.current.play()
       .then(() => {
         setAudioError(false)
         audioStartedRef.current = true
         setAudioStarted(true)
+        setAudioMuted(audio.current.muted)
       })
       .catch((error) => {
         setAudioError(true)
@@ -113,8 +115,7 @@ function App() {
   }
 
   const replayAudio = () => {
-    trackInteraction('audio_play_requested', { source: 'audio_prompt' })
-    setAudioPromptDismissed(true)
+    trackInteraction('audio_play_requested', { source: 'audio_control' })
     setAudioEngaged(true)
     if (audio.current) {
         audio.current.currentTime = 0
@@ -127,12 +128,17 @@ function App() {
   useEffect(() => {
     const beginOnInteraction = () => {
       setAudioEngaged(true)
-      startMusic(true)
+      if (audio.current && !audioUnlockedRef.current) {
+        audio.current.muted = false
+        audioUnlockedRef.current = true
+        setAudioMuted(false)
+      }
+      startMusic(false, false)
     }
-    const beginWhenReady = () => startMusic(true)
+    const beginWhenReady = () => startMusic(false, true)
     const player = audio.current
     player?.addEventListener('canplay', beginWhenReady, { once: true })
-    startMusic(true)
+    startMusic(false, true)
     window.addEventListener('pointerdown', beginOnInteraction, { once: true, passive: true, capture: true })
     window.addEventListener('keydown', beginOnInteraction, { once: true, capture: true })
     return () => {
@@ -357,16 +363,7 @@ function App() {
 
   return (
     <div className="page">
-      <audio ref={audio} src="/audio/bgm.mp3" loop preload="auto" autoPlay playsInline aria-hidden="true" onError={() => setAudioError(true)} />
-      {!audioStarted && !audioPromptDismissed && <div className="audio-prompt" role="dialog" aria-live="polite" aria-label="Play background audio">
-        <button className="audio-prompt-close" onClick={() => setAudioPromptDismissed(true)} aria-label="Dismiss audio prompt">×</button>
-        <span className="audio-prompt-icon" aria-hidden="true">♫</span>
-        <div>
-          <strong>the soundtrack is waiting</strong>
-          <p>Tap once to start the little music I chose for you.</p>
-        </div>
-        <button className="audio-prompt-action" onClick={replayAudio}>Play audio <Arrow /></button>
-      </div>}
+      <audio ref={audio} src="/audio/bgm.mp3" loop preload="auto" autoPlay muted playsInline aria-hidden="true" onError={() => setAudioError(true)} />
       {audioEngaged && <button className="music-toggle" onClick={toggleMusic} aria-label={audioMuted ? 'Unmute background music' : 'Mute background music'} aria-pressed={!audioMuted}>
         <span className="music-toggle-icon" aria-hidden="true">{audioMuted ? '♪̸' : '♫'}</span>
         <span>{audioMuted ? 'sound off' : audioStarted ? 'sound on' : audioError ? 'retry sound' : 'play sound'}</span>
