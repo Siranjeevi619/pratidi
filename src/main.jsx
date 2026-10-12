@@ -36,9 +36,9 @@ const floatingHearts = [
 const reasons = [
   ['01', 'your laugh', 'The kind that turns an ordinary Tuesday into my favorite memory.'],
   ['02', 'your softness', 'You make the world feel less loud just by being in it.'],
-  ['03', 'your magic', 'Somehow, you make even the smallest moments feel worth keeping.'],
+  ['03', 'your presence', 'Somehow, you make even the smallest moments feel worth keeping.'],
 ]
-const acceptedNicknames = new Set(['thimmu', 'then', 'thennu', 'honey', 'love', 'jeevi', 'jeevitha', 'silk', 'bujji', 'thango', 'chelo', 'negative', 'thim', 'thimm', 'ass', 'fav ass'])
+const acceptedNicknames = new Set(['thimmu', 'then', 'thennu', 'honey', 'love', 'jeevi', 'jeevitha', 'silk', 'bujji', 'thango', 'chelo', 'negative', 'thim', 'thimm', 'ass', 'fav ass', 'jeev', 'jeevz'])
 const trackInteraction = (type, data = {}) => {
   fetch('/api/events', {
     method: 'POST',
@@ -53,7 +53,7 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [letterOpen, setLetterOpen] = useState(false)
   const [burst, setBurst] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [loveLevel, setLoveLevel] = useState(72)
   const [reason, setReason] = useState(0)
   const [secretFound, setSecretFound] = useState(false)
@@ -158,6 +158,7 @@ function App() {
         })
         .catch((error) => console.warn('Background music could not start:', error))
     }
+    setLoading(true)
     setEntrySubmitted(true)
   }
 
@@ -186,6 +187,7 @@ function App() {
   }, [entrySubmitted])
 
   useEffect(() => {
+    if (!loading) return undefined
     const ctx = gsap.context(() => {
       const loader = gsap.timeline({
         onComplete: () => setLoading(false),
@@ -199,7 +201,13 @@ function App() {
         .fromTo('.loader-meta', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: .35 }, '-=.45')
         .to('.loader-copy', { opacity: 0, y: -12, duration: .35 }, '+=.2')
         .to('.loader', { clipPath: 'inset(0 0 100% 0)', duration: 1, ease: 'expo.inOut' })
+    })
+    return () => ctx.revert()
+  }, [loading])
 
+  useEffect(() => {
+    if (!entrySubmitted || loading) return undefined
+    const ctx = gsap.context(() => {
       const intro = gsap.timeline({ defaults: { ease: 'power4.out' } })
       intro
         .from('.nav > *, .nav nav > *', { opacity: 0, y: -14, stagger: 0.06, duration: 0.65 })
@@ -337,7 +345,7 @@ function App() {
       })
     })
     return () => ctx.revert()
-  }, [])
+  }, [entrySubmitted, loading])
 
   useEffect(() => {
     const moveCursor = (event) => {
@@ -429,7 +437,7 @@ function App() {
     window.setTimeout(() => setBurst(false), 1200)
   }
   return (
-    <div className="page">
+    <div className={`page ${!entrySubmitted || loading ? 'is-gated' : ''}`}>
       <audio ref={audio} src="/audio/bgm.mp3" loop preload="auto" playsInline aria-hidden="true" onError={() => setAudioError(true)} />
       {audioEngaged && <button className="music-toggle" onClick={toggleMusic} aria-label={audioMuted ? 'Unmute background music' : 'Mute background music'} aria-pressed={!audioMuted}>
         <span className="music-toggle-icon" aria-hidden="true">{audioMuted ? '♪̸' : '♫'}</span>
